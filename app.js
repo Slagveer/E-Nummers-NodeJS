@@ -6,6 +6,7 @@ var express = require('express')
     , routes = require('./routes')
     , user = require('./routes/user')
     , enummers = require('./routes/enummers')
+    , facebook = require('./routes/facebook')
     , mysql = require('mysql')
     , http = require('http')
     , path = require('path');
@@ -33,6 +34,9 @@ app.get('/users', user.list);
 app.get('/categorieen', enummers.categorieen);
 app.get('/soorten', enummers.soorten);
 app.get('/enummers', enummers.enummers);
+app.get('/effecten', enummers.effecten);
+app.get('/enummerseffecten', enummers.enummerseffecten);
+app.get('/facebook', facebook.loadPosts);
 
 http.createServer(app).listen(app.get('port'), function(){
     console.log("Express server listening on port " + app.get('port'));
