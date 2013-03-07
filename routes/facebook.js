@@ -41,7 +41,14 @@ exports.loadPosts = function(req, res){
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*"
             });
-            res.end(JSON.stringify(data));
+            var result = [];
+            for(var i=0,l = data.data.length; i<l;i++){
+                //console.log(data.data[i]);
+                if(data.data[i].message && data.data[i].type !== "photo"){
+                    result.push(data.data[i]);
+                }
+            }
+            res.end(JSON.stringify(result));
         }).fail(function(jqXHR, textStatus, errorThrown){
             res.writeHead(200, {
                 "Content-Type": "application/json",
