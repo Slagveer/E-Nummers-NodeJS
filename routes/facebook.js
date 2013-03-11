@@ -3,52 +3,33 @@
  */
 var https = require('https');
 var $ = require('jquery');
-var url = 'https://graph.facebook.com/oauth/access_token?client_id=547621198605534&client_secret=7fe4aed27e8e5c58086f1d318c4ac909&grant_type=client_credentials';
+var arrayResult = [];
 
-exports.token = function(req, res){
-
-    var options = {
-        host: 'graph.facebook.com',
-        //port: 443,
-        path: '/oauth/access_token?client_id=547621198605534&client_secret=7fe4aed27e8e5c58086f1d318c4ac909&grant_type=client_credentials',
-        method: 'GET'
-    };
-    req.on('end', function () {
-        getToken();
-        https.get(options, function(resp){
-            resp.on('data', function(chunk){
-                //do something with chunk
-                console.log("Got token: " + chunk);
+exports.loadPosts = function(req, res){
+    $.when(getToken()).done(function(token){
+        //console.log(token);
+        $.when(getPages(token.toString())).done(function(data){
+            var pages = data.data,l = data.data.length,ajaxItemsDefered = [];
+            for(var i = 0;i<l;i++){
+                //console.log(pages[i].id + " " + pages[i].name);
+                if(pages[i].id.split("110833495662026").length === 1){
+                    ajaxItemsDefered.push(getMessages(token.toString(),pages[i]));
+                }
+            }
+            $.when.apply($, ajaxItemsDefered).then(function(){
                 res.writeHead(200, {
                     "Content-Type": "application/json",
                     "Access-Control-Allow-Origin": "*"
                 });
-                var w = {result:chunk.toString()};
-                //res.end('__parseJSONPResponse(' + JSON.stringify(rows) + ')');
-                res.end(JSON.stringify(w));
-            });
-        }).on("error", function(e){
-                console.log("Got error: " + e.message);
-            });
-    });
-};
-
-exports.loadPosts = function(req, res){
-    $.when(getToken()).done(function(token){
-        console.log(token);
-        $.when(getMessages(token.toString())).done(function(data){
-            res.writeHead(200, {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            });
-            var result = [];
-            for(var i=0,l = data.data.length; i<l;i++){
-                //console.log(data.data[i]);
-                if(data.data[i].message && data.data[i].type !== "photo"){
-                    result.push(data.data[i]);
-                }
-            }
-            res.end(JSON.stringify(result));
+                res.end(JSON.stringify(arrayResult));
+            }).fail(function(jqXHR, textStatus, errorThrown){
+                    res.writeHead(200, {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*"
+                    });
+                    var obj = {"result":[]};
+                    res.end(JSON.stringify(obj));
+                });
         }).fail(function(jqXHR, textStatus, errorThrown){
             res.writeHead(200, {
                 "Content-Type": "application/json",
@@ -78,7 +59,7 @@ var getToken = function(){
     };
     https.get(options, function(res){
         res.on('data', function(data){
-            console.log("YOH: " + data);
+            //console.log("YOH: " + data);
             dfd.resolve(data);
         });
     }).on("error", function(e){
@@ -88,11 +69,18 @@ var getToken = function(){
     return dfd.promise();
 }
 
-var getMessages = function(token){
+var getMessages = function(token,data){
     var dfd = $.Deferred();
-    $.ajax("https://graph.facebook.com/EnummersEnumbers/posts?access_token=547621198605534|sidMXWXYL1Sxuq--wXqLDvPZgHE&callback=?"
+    $.ajax("https://graph.facebook.com/" + data.id + "/posts?" + token + "&callback=?"
     ,{dataType: "jsonp",cache: false,timeout: 5000,success: function(data){
-                dfd.resolve(data);
+                var messages = data.data,l = data.data.length;
+                for(var i=0; i<l;i++){
+                    //console.log(messages[i]);
+                    if(messages[i].message && messages[i].type !== "photo"){
+                        arrayResult.push(messages[i]);
+                    }
+                }
+                dfd.resolve(arrayResult);
             },
             error: function(jqXHR, textStatus, errorThrown){
                 dfd.reject(textStatus);
@@ -103,32 +91,17 @@ var getMessages = function(token){
     return dfd.promise();
 }
 
-exports.categorieen = function(req, res){
-
-    var connection = mysql.createConnection({
-        user: "root",
-        password: "root",//"webdesign",
-        database: "enummers",
-        host: '127.0.0.1',
-        port: '8889'//'3306'
-    });
-    req.on('end', function () {
-        var host = req.headers.host;
-        console.log(host);
-        if(host == '109.235.76.92:3000' || host == 'localhost:3000' || host == '127.0.0.1:3000'){
-            // Query the database.
-            connection.query('SELECT * FROM categorieen;', function (error, rows, fields) {
-                res.writeHead(200, {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
-                });
-                //res.end('__parseJSONPResponse(' + JSON.stringify(rows) + ')');
-                res.end(JSON.stringify(rows));
-            });
+var getPages = function(token){
+    var dfd = $.Deferred();
+    $.ajax("https://graph.facebook.com/search?q=enummer&type=page&" + token + "&callback=?"
+        ,{dataType: "jsonp",cache: false,timeout: 5000,success: function(data){
+            dfd.resolve(data);
+        },
+            error: function(jqXHR, textStatus, errorThrown){
+                dfd.reject(textStatus);
+                console.log(errorThrown);
+            }
         }
-        else{
-            res.send("Restriction, sorry!!!" + host);
-        }
-    });
-    //res.send("respond with a resource");
-};
+    );
+    return dfd.promise();
+}
